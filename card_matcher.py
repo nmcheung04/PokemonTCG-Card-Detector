@@ -11,10 +11,16 @@ from dotenv import load_dotenv
 load_dotenv()
 
 def load_card_database(database_path):
+    '''
+    Loads the card database from a pickle file
+    '''
     with open(database_path, 'rb') as f:
         return pickle.load(f)
 
 def compute_phash(pil_img):
+    '''
+    Computes the perceptual hash of a given PIL image
+    '''
     return str(imagehash.phash(pil_img))
 
 def match_card(phash, card_database):
@@ -60,6 +66,9 @@ def getContours(img, imgContour, originalImg, areaMin=15000, width=500, height=7
     return imgContour, None
 
 def get_card_price(card_id):
+    '''
+    Fetches the price information for a given card ID from the Pokemon TCG API
+    '''
     api_key = os.getenv("POKEMON_API_KEY")
     url = f"https://api.pokemontcg.io/v2/cards/{card_id}"
     headers = {"X-Api-Key": api_key}

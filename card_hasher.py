@@ -23,6 +23,9 @@ def perceptual_hasher(card_database, filename, img):
     print(f"Added {name_without_extension} to database with hash {img_hash}")
 
 def main(image_folder = "card_images", output_file = "card_database.pkl"):
+    '''
+    Process all images in a folder and save the database to a pickle file
+    '''
     if not os.path.isdir(image_folder):
         print(f"Folder {image_folder} does not exist")
         return

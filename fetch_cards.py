@@ -4,7 +4,6 @@ import os
 from tqdm import tqdm
 from dotenv import load_dotenv
 
-# Load environment variables once at the start
 load_dotenv()
 
 def download_image(image_url, save_path):
