@@ -42,6 +42,5 @@ If you want to generate your own database, you can run the following scripts:
 - To generate the card database:
     ```bash
     python card_hasher.py
-    ''''
 
 
