@@ -5,7 +5,7 @@ import os
 
 def get_image(image_folder):
     '''
-    Gets all PNG images from a folder containing images
+    Gets PNG images from a folder containing images
     '''
     for filename in os.listdir(image_folder):
         if filename.endswith('.png'):

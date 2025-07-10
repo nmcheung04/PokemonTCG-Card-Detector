@@ -19,9 +19,9 @@ def download_image(image_url, save_path):
     else:
         tqdm.write(f"Failed to download image from {image_url}")
 
-def fetch_and_process(api_url, headers, params, save_dir):
+def fetch_and_process(api_url, headers, params, save_dir, max_pages = 1000):
     '''
-    Fetches image using API and saves it to save_dir
+    Fetches image using PokemonTCG API and saves it to save_dir
     '''
     current_page = 1
     page_size = params.get('pageSize', 250)
@@ -52,12 +52,12 @@ def fetch_and_process(api_url, headers, params, save_dir):
             save_path = os.path.join(save_dir, file_name)
             download_image(image_url, save_path)
 
-        if len(cards) < page_size:
+        if len(cards) < page_size or current_page >= max_pages:
             break
 
         current_page += 1
 
-def main(save_dir = "card_images"):
+def main(save_dir = "card_images_test"):
     api_url = "https://api.pokemontcg.io/v2/cards"
     api_key = os.getenv("POKEMON_API_KEY")
     headers = {
@@ -68,7 +68,8 @@ def main(save_dir = "card_images"):
         "page" : 1
     }
     os.makedirs(save_dir, exist_ok = True)
-    fetch_and_process(api_url, headers, params, save_dir)
+    # max_pages = 1
+    fetch_and_process(api_url, headers, params, save_dir, max_pages)
 
 if __name__ == "__main__":
     main()

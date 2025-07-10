@@ -1,0 +1,127 @@
+{% extends "base.html" %}
+
+{% block title %}Pokemon Card Manager - Home{% endblock %}
+
+{% block content %}
+<div class="min-h-screen flex flex-col">
+    <!-- Hero Section -->
+    <section class="flex-1 flex items-center justify-center py-20">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
+            <div class="card p-12 max-w-4xl mx-auto">
+                <div class="mb-8">
+                    <i class="fas fa-dragon text-6xl pokemon-gradient bg-clip-text text-transparent mb-6"></i>
+                    <h1 class="text-5xl font-bold text-gray-900 mb-4">
+                        Manage Your Pokemon Card Collection
+                    </h1>
+                    <p class="text-xl text-gray-600 mb-8">
+                        Upload photos of your Pokemon cards and automatically identify them using AI. 
+                        Build your digital deck, track prices, and organize your collection with ease.
+                    </p>
+                </div>
+
+                <div class="flex flex-col sm:flex-row gap-4 justify-center mb-12">
+                    {% if session.user %}
+                        <a href="/dashboard" class="btn-primary text-white px-8 py-4 rounded-lg font-semibold text-lg">
+                            <i class="fas fa-home mr-2"></i>Go to Dashboard
+                        </a>
+                    {% else %}
+                        <a href="/register" class="btn-primary text-white px-8 py-4 rounded-lg font-semibold text-lg">
+                            <i class="fas fa-user-plus mr-2"></i>Get Started
+                        </a>
+                        <a href="/login" class="border-2 border-gray-300 text-gray-700 px-8 py-4 rounded-lg font-semibold text-lg hover:bg-gray-50">
+                            <i class="fas fa-sign-in-alt mr-2"></i>Sign In
+                        </a>
+                    {% endif %}
+                </div>
+
+                <!-- Features Grid -->
+                <div class="grid md:grid-cols-3 gap-8 mt-16">
+                    <div class="text-center">
+                        <div class="w-16 h-16 bg-blue-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                            <i class="fas fa-camera text-2xl text-blue-600"></i>
+                        </div>
+                        <h3 class="text-xl font-semibold text-gray-900 mb-2">Smart Card Detection</h3>
+                        <p class="text-gray-600">Upload a photo and our AI will automatically identify your Pokemon cards using advanced image recognition.</p>
+                    </div>
+
+                    <div class="text-center">
+                        <div class="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                            <i class="fas fa-database text-2xl text-green-600"></i>
+                        </div>
+                        <h3 class="text-xl font-semibold text-gray-900 mb-2">Digital Deck Management</h3>
+                        <p class="text-gray-600">Organize your cards in a digital deck, track your collection, and manage your Pokemon cards easily.</p>
+                    </div>
+
+                    <div class="text-center">
+                        <div class="w-16 h-16 bg-purple-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                            <i class="fas fa-chart-line text-2xl text-purple-600"></i>
+                        </div>
+                        <h3 class="text-xl font-semibold text-gray-900 mb-2">Price Tracking</h3>
+                        <p class="text-gray-600">Get real-time price information for your cards and track the value of your collection over time.</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- How It Works Section -->
+    <section class="py-20">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="card p-12">
+                <h2 class="text-3xl font-bold text-center text-gray-900 mb-12">How It Works</h2>
+                
+                <div class="grid md:grid-cols-4 gap-8">
+                    <div class="text-center">
+                        <div class="w-12 h-12 bg-blue-500 text-white rounded-full flex items-center justify-center mx-auto mb-4 font-bold text-lg">1</div>
+                        <h3 class="text-lg font-semibold text-gray-900 mb-2">Upload Photo</h3>
+                        <p class="text-gray-600">Take a photo of your Pokemon card or upload an existing image.</p>
+                    </div>
+
+                    <div class="text-center">
+                        <div class="w-12 h-12 bg-blue-500 text-white rounded-full flex items-center justify-center mx-auto mb-4 font-bold text-lg">2</div>
+                        <h3 class="text-lg font-semibold text-gray-900 mb-2">AI Analysis</h3>
+                        <p class="text-gray-600">Our AI analyzes the image and identifies the card using advanced pattern recognition.</p>
+                    </div>
+
+                    <div class="text-center">
+                        <div class="w-12 h-12 bg-blue-500 text-white rounded-full flex items-center justify-center mx-auto mb-4 font-bold text-lg">3</div>
+                        <h3 class="text-lg font-semibold text-gray-900 mb-2">Get Results</h3>
+                        <p class="text-gray-600">Receive detailed information about the card including name, set, and current market value.</p>
+                    </div>
+
+                    <div class="text-center">
+                        <div class="w-12 h-12 bg-blue-500 text-white rounded-full flex items-center justify-center mx-auto mb-4 font-bold text-lg">4</div>
+                        <h3 class="text-lg font-semibold text-gray-900 mb-2">Add to Deck</h3>
+                        <p class="text-gray-600">Save the card to your digital deck and track your collection over time.</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Stats Section -->
+    <section class="py-20">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="grid md:grid-cols-3 gap-8">
+                <div class="card p-8 text-center">
+                    <i class="fas fa-dragon text-4xl text-blue-600 mb-4"></i>
+                    <h3 class="text-2xl font-bold text-gray-900 mb-2">18,000+ Cards</h3>
+                    <p class="text-gray-600">Comprehensive database of Pokemon cards</p>
+                </div>
+
+                <div class="card p-8 text-center">
+                    <i class="fas fa-bolt text-4xl text-green-600 mb-4"></i>
+                    <h3 class="text-2xl font-bold text-gray-900 mb-2">Instant Recognition</h3>
+                    <p class="text-gray-600">AI-powered card detection in seconds</p>
+                </div>
+
+                <div class="card p-8 text-center">
+                    <i class="fas fa-shield-alt text-4xl text-purple-600 mb-4"></i>
+                    <h3 class="text-2xl font-bold text-gray-900 mb-2">Secure Storage</h3>
+                    <p class="text-gray-600">Your collection is safely stored in the cloud</p>
+                </div>
+            </div>
+        </div>
+    </section>
+</div>
+{% endblock %} 

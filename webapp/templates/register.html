@@ -1,0 +1,154 @@
+{% extends "base.html" %}
+
+{% block title %}Register - Pokemon Card Manager{% endblock %}
+
+{% block content %}
+<div class="min-h-screen flex items-center justify-center py-12 px-4 sm:px-6 lg:px-8">
+    <div class="max-w-md w-full">
+        <div class="card p-8">
+            <div class="text-center mb-8">
+                <i class="fas fa-dragon text-4xl pokemon-gradient bg-clip-text text-transparent mb-4"></i>
+                <h2 class="text-3xl font-bold text-gray-900">Create Account</h2>
+                <p class="text-gray-600 mt-2">Join Pokemon Card Manager</p>
+            </div>
+
+            <form id="register-form" class="space-y-6">
+                <div>
+                    <label for="email" class="block text-sm font-medium text-gray-700 mb-2">
+                        Email Address
+                    </label>
+                    <input type="email" id="email" name="email" required
+                           class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                           placeholder="Enter your email">
+                </div>
+
+                <div>
+                    <label for="password" class="block text-sm font-medium text-gray-700 mb-2">
+                        Password
+                    </label>
+                    <input type="password" id="password" name="password" required
+                           class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                           placeholder="Create a password"
+                           minlength="6">
+                    <p class="text-xs text-gray-500 mt-1">Password must be at least 6 characters long</p>
+                </div>
+
+                <div>
+                    <label for="confirm-password" class="block text-sm font-medium text-gray-700 mb-2">
+                        Confirm Password
+                    </label>
+                    <input type="password" id="confirm-password" name="confirm-password" required
+                           class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                           placeholder="Confirm your password">
+                </div>
+
+                <div class="flex items-center">
+                    <input type="checkbox" id="terms" name="terms" required
+                           class="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded">
+                    <label for="terms" class="ml-2 block text-sm text-gray-700">
+                        I agree to the 
+                        <a href="#" class="text-blue-600 hover:text-blue-500">Terms of Service</a>
+                        and 
+                        <a href="#" class="text-blue-600 hover:text-blue-500">Privacy Policy</a>
+                    </label>
+                </div>
+
+                <div>
+                    <button type="submit" 
+                            class="w-full btn-primary text-white py-3 px-4 rounded-lg font-semibold text-lg">
+                        <i class="fas fa-user-plus mr-2"></i>Create Account
+                    </button>
+                </div>
+            </form>
+
+            <div class="mt-6 text-center">
+                <p class="text-gray-600">
+                    Already have an account? 
+                    <a href="/login" class="text-blue-600 hover:text-blue-500 font-medium">
+                        Sign in here
+                    </a>
+                </p>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+document.getElementById('register-form').addEventListener('submit', function(e) {
+    e.preventDefault();
+    
+    const email = document.getElementById('email').value;
+    const password = document.getElementById('password').value;
+    const confirmPassword = document.getElementById('confirm-password').value;
+    const terms = document.getElementById('terms').checked;
+    
+    // Validation
+    if (password !== confirmPassword) {
+        showToast('Passwords do not match', 'error');
+        return;
+    }
+    
+    if (password.length < 6) {
+        showToast('Password must be at least 6 characters long', 'error');
+        return;
+    }
+    
+    if (!terms) {
+        showToast('Please agree to the terms and conditions', 'error');
+        return;
+    }
+    
+    // Show loading state
+    const button = e.target.querySelector('button');
+    const originalText = button.innerHTML;
+    button.innerHTML = '<i class="fas fa-spinner fa-spin mr-2"></i>Creating Account...';
+    button.disabled = true;
+    
+    fetch('/register', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+            email: email,
+            password: password
+        })
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            showToast(data.message || 'Account created successfully!', 'success');
+            setTimeout(() => {
+                window.location.href = '/dashboard';
+            }, 1500);
+        } else {
+            showToast(data.error || 'Registration failed', 'error');
+            button.innerHTML = originalText;
+            button.disabled = false;
+        }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        showToast('An error occurred during registration', 'error');
+        button.innerHTML = originalText;
+        button.disabled = false;
+    });
+});
+
+// Real-time password confirmation validation
+document.getElementById('confirm-password').addEventListener('input', function() {
+    const password = document.getElementById('password').value;
+    const confirmPassword = this.value;
+    
+    if (confirmPassword && password !== confirmPassword) {
+        this.classList.add('border-red-500');
+        this.classList.remove('border-gray-300');
+    } else {
+        this.classList.remove('border-red-500');
+        this.classList.add('border-gray-300');
+    }
+});
+</script>
+{% endblock %} 

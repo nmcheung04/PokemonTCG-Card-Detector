@@ -1,0 +1,619 @@
+{% extends "base.html" %}
+
+{% block title %}Dashboard - Pokemon Card Manager{% endblock %}
+
+{% block extra_head %}
+<style>
+    .upload-area {
+        border: 2px dashed #cbd5e0;
+        transition: all 0.3s ease;
+    }
+    
+    .upload-area:hover {
+        border-color: #667eea;
+        background-color: #f7fafc;
+    }
+    
+    .upload-area.dragover {
+        border-color: #667eea;
+        background-color: #edf2f7;
+    }
+    
+    .card-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+        gap: 1.5rem;
+    }
+    
+    .loading-spinner {
+        border: 3px solid #f3f3f3;
+        border-top: 3px solid #667eea;
+        border-radius: 50%;
+        width: 30px;
+        height: 30px;
+        animation: spin 1s linear infinite;
+    }
+    
+    @keyframes spin {
+        0% { transform: rotate(0deg); }
+        100% { transform: rotate(360deg); }
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="min-h-screen py-8">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <!-- Header -->
+        <div class="mb-8">
+            <h1 class="text-3xl font-bold text-white mb-2">Welcome back!</h1>
+            <p class="text-white/80">Manage your Pokemon card collection</p>
+        </div>
+
+        <!-- Stats Cards -->
+        <div class="grid md:grid-cols-4 gap-6 mb-8">
+            <div class="card p-6">
+                <div class="flex items-center">
+                    <div class="w-12 h-12 bg-blue-100 rounded-lg flex items-center justify-center mr-4">
+                        <i class="fas fa-cards-blank text-blue-600"></i>
+                    </div>
+                    <div>
+                        <p class="text-sm text-gray-600">Total Cards</p>
+                        <p class="text-2xl font-bold text-gray-900" id="total-cards">-</p>
+                    </div>
+                </div>
+            </div>
+
+            <div class="card p-6">
+                <div class="flex items-center">
+                    <div class="w-12 h-12 bg-green-100 rounded-lg flex items-center justify-center mr-4">
+                        <i class="fas fa-dollar-sign text-green-600"></i>
+                    </div>
+                    <div>
+                        <p class="text-sm text-gray-600">Collection Value</p>
+                        <p class="text-2xl font-bold text-gray-900" id="collection-value">-</p>
+                    </div>
+                </div>
+            </div>
+
+            <div class="card p-6">
+                <div class="flex items-center">
+                    <div class="w-12 h-12 bg-purple-100 rounded-lg flex items-center justify-center mr-4">
+                        <i class="fas fa-star text-purple-600"></i>
+                    </div>
+                    <div>
+                        <p class="text-sm text-gray-600">Rare Cards</p>
+                        <p class="text-2xl font-bold text-gray-900" id="rare-cards">-</p>
+                    </div>
+                </div>
+            </div>
+
+            <div class="card p-6">
+                <div class="flex items-center">
+                    <div class="w-12 h-12 bg-orange-100 rounded-lg flex items-center justify-center mr-4">
+                        <i class="fas fa-calendar text-orange-600"></i>
+                    </div>
+                    <div>
+                        <p class="text-sm text-gray-600">Last Added</p>
+                        <p class="text-2xl font-bold text-gray-900" id="last-added">-</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Webcam Card Detection Section -->
+        <div class="card p-8 mb-8">
+            <h2 class="text-2xl font-bold text-gray-900 mb-6">Live Card Detection</h2>
+            
+            <div class="grid md:grid-cols-2 gap-8">
+                <!-- Webcam Feed -->
+                <div>
+                    <h3 class="text-lg font-semibold text-gray-900 mb-4">Camera Feed</h3>
+                    <div class="relative">
+                        <video id="webcam" class="w-full h-64 bg-gray-100 rounded-lg object-contain" autoplay muted style="width: 640px; height: 480px; max-width: 100%;"></video>
+                        <canvas id="canvas" class="absolute top-0 left-0 w-full h-64 rounded-lg object-contain" style="display: none; width: 640px; height: 480px; max-width: 100%;"></canvas>
+                        
+                        <div class="mt-4 flex space-x-2">
+                            <button id="start-camera" class="btn-primary text-white px-4 py-2 rounded-lg font-semibold">
+                                <i class="fas fa-play mr-2"></i>Start Camera
+                            </button>
+                            <button id="stop-camera" class="border-2 border-gray-300 text-gray-700 px-4 py-2 rounded-lg font-semibold hover:bg-gray-50" style="display: none;">
+                                <i class="fas fa-stop mr-2"></i>Stop Camera
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Contour Detection Display -->
+                <div>
+                    <h3 class="text-lg font-semibold text-gray-900 mb-4">Edge Detection</h3>
+                    <div class="relative">
+                        <img id="contour-display" class="w-full h-64 bg-gray-100 rounded-lg object-contain" src="" alt="Contour detection" style="display: none; width: 640px; height: 480px; max-width: 100%;">
+                        <div id="contour-placeholder" class="w-full h-64 bg-gray-100 rounded-lg flex items-center justify-center" style="width: 640px; height: 480px; max-width: 100%;">
+                            <div class="text-center">
+                                <i class="fas fa-search text-4xl text-gray-400 mb-2"></i>
+                                <p class="text-gray-600">Edge detection will appear here</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Detection Results -->
+                <div>
+                    <h3 class="text-lg font-semibold text-gray-900 mb-4">Detection Results</h3>
+                    <div id="detection-status" class="text-center py-8">
+                        <i class="fas fa-camera text-4xl text-gray-400 mb-4"></i>
+                        <p class="text-gray-600">Start camera to begin card detection</p>
+                    </div>
+
+                    <!-- Card Detection Info -->
+                    <div id="card-info" class="hidden">
+                        <div class="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-4">
+                            <h4 class="font-semibold text-blue-900 mb-2">Detected Card</h4>
+                            <div id="card-details"></div>
+                        </div>
+
+                        <!-- Confirmation Timer -->
+                        <div id="confirmation-timer" class="hidden">
+                            <div class="bg-yellow-50 border border-yellow-200 rounded-lg p-4 mb-4">
+                                <div class="flex items-center justify-between">
+                                    <div>
+                                        <h4 class="font-semibold text-yellow-900">Add to Deck?</h4>
+                                        <p class="text-yellow-700 text-sm">This card has been detected for <span id="timer-seconds">0</span> seconds</p>
+                                    </div>
+                                    <div class="text-2xl font-bold text-yellow-600" id="timer-display">0</div>
+                                </div>
+                                <div class="mt-3 flex space-x-2">
+                                    <button id="confirm-add" class="bg-green-500 text-white px-4 py-2 rounded-lg font-semibold hover:bg-green-600">
+                                        <i class="fas fa-check mr-2"></i>Add to Deck
+                                    </button>
+                                    <button id="cancel-add" class="bg-red-500 text-white px-4 py-2 rounded-lg font-semibold hover:bg-red-600">
+                                        <i class="fas fa-times mr-2"></i>Cancel
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Deck Section -->
+        <div class="card p-8">
+            <div class="flex justify-between items-center mb-6">
+                <h2 class="text-2xl font-bold text-gray-900">Your Deck</h2>
+                <div class="flex space-x-2">
+                    <button class="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200" onclick="refreshDeck()">
+                        <i class="fas fa-refresh mr-2"></i>Refresh
+                    </button>
+                </div>
+            </div>
+
+            <div id="deck-container">
+                <div class="text-center py-12" id="empty-deck">
+                    <i class="fas fa-cards-blank text-4xl text-gray-400 mb-4"></i>
+                    <h3 class="text-lg font-semibold text-gray-900 mb-2">No cards yet</h3>
+                    <p class="text-gray-600">Upload your first Pokemon card to get started!</p>
+                </div>
+
+                <div class="card-grid hidden" id="deck-grid"></div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    // Global variables
+    let currentImageData = null;
+    let stream = null;
+    let detectionInterval = null;
+    let currentCard = null;
+    let cardDetectionStartTime = null;
+    let confirmationTimer = null;
+    let lastDetectedCard = null;
+
+    // Initialize dashboard
+    document.addEventListener('DOMContentLoaded', function() {
+        loadStats();
+        loadDeck();
+        setupWebcamHandlers();
+    });
+
+    // Setup webcam handlers
+    function setupWebcamHandlers() {
+        const startButton = document.getElementById('start-camera');
+        const stopButton = document.getElementById('stop-camera');
+        const confirmButton = document.getElementById('confirm-add');
+        const cancelButton = document.getElementById('cancel-add');
+
+        startButton.addEventListener('click', startCamera);
+        stopButton.addEventListener('click', stopCamera);
+        confirmButton.addEventListener('click', confirmAddCard);
+        cancelButton.addEventListener('click', cancelAddCard);
+    }
+
+    // Start camera
+    async function startCamera() {
+        try {
+            stream = await navigator.mediaDevices.getUserMedia({ 
+                video: { 
+                    width: 640, 
+                    height: 480,
+                    facingMode: 'environment' // Use back camera on mobile
+                } 
+            });
+            
+            const video = document.getElementById('webcam');
+            video.srcObject = stream;
+            
+            document.getElementById('start-camera').style.display = 'none';
+            document.getElementById('stop-camera').style.display = 'inline-flex';
+            
+            // Start detection after camera is ready
+            video.onloadedmetadata = function() {
+                startDetection();
+            };
+            
+        } catch (error) {
+            console.error('Error accessing camera:', error);
+            showToast('Could not access camera. Please check permissions.', 'error');
+        }
+    }
+
+    // Stop camera
+    function stopCamera() {
+        if (stream) {
+            stream.getTracks().forEach(track => track.stop());
+            stream = null;
+        }
+        
+        if (detectionInterval) {
+            clearInterval(detectionInterval);
+            detectionInterval = null;
+        }
+        
+        if (confirmationTimer) {
+            clearInterval(confirmationTimer);
+            confirmationTimer = null;
+        }
+        
+        document.getElementById('start-camera').style.display = 'inline-flex';
+        document.getElementById('stop-camera').style.display = 'none';
+        document.getElementById('detection-status').classList.remove('hidden');
+        document.getElementById('card-info').classList.add('hidden');
+        
+        // Reset state
+        currentCard = null;
+        cardDetectionStartTime = null;
+        lastDetectedCard = null;
+    }
+
+    // Start detection loop
+    function startDetection() {
+        detectionInterval = setInterval(processFrame, 1000); // Process every second
+    }
+
+    // Process webcam frame
+    function processFrame() {
+        const video = document.getElementById('webcam');
+        const canvas = document.getElementById('canvas');
+        const ctx = canvas.getContext('2d');
+        
+        // Set canvas size to match video
+        canvas.width = video.videoWidth;
+        canvas.height = video.videoHeight;
+        
+        // Draw video frame to canvas
+        ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+        
+        // Get frame data
+        const frameData = canvas.toDataURL('image/jpeg', 0.8);
+        
+        // Send frame for processing
+        fetch('/process-webcam-frame', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+                frame: frameData
+            })
+        })
+        .then(response => response.json())
+        .then(data => {
+            console.log('Received data:', data); // Debug log
+            
+            // Always update contour display
+            if (data.contour_image) {
+                updateContourDisplay(data.contour_image);
+            }
+            
+            if (data.success && data.card_detected) {
+                console.log('Card detected, calling handleCardDetected'); // Debug log
+                handleCardDetected(data);
+            } else {
+                console.log('No card detected or success false'); // Debug log
+                handleNoCardDetected();
+            }
+        })
+        .catch(error => {
+            console.error('Error processing frame:', error);
+        });
+    }
+
+    // Handle card detected
+    function handleCardDetected(data) {
+        console.log('handleCardDetected called with:', data); // Debug log
+        const cardName = data.card_name;
+        console.log('Card name:', cardName); // Debug log
+        console.log('Last detected card:', lastDetectedCard); // Debug log
+        
+        // Check if this is the same card as before
+        if (lastDetectedCard === cardName) {
+            console.log('Same card detected again'); // Debug log
+            // Same card detected again - do nothing, already showing confirmation
+        } else {
+            console.log('Different card detected, showing confirmation'); // Debug log
+            // Different card detected, show confirmation immediately
+            lastDetectedCard = cardName;
+            cardDetectionStartTime = Date.now();
+            currentCard = data;
+            showCardInfo(data);
+            showConfirmationDialog(data, 0);
+        }
+    }
+
+    // Handle no card detected
+    function handleNoCardDetected() {
+        // Only reset detection state if no confirmation dialog is currently showing
+        const confirmationTimer = document.getElementById('confirmation-timer');
+        if (confirmationTimer.classList.contains('hidden')) {
+            // Reset detection state only if no dialog is showing
+            lastDetectedCard = null;
+            cardDetectionStartTime = null;
+            currentCard = null;
+            hideCardInfo();
+        }
+        // Don't hide confirmation dialog - let user make their choice
+    }
+
+    // Show card information
+    function showCardInfo(data) {
+        document.getElementById('detection-status').classList.add('hidden');
+        document.getElementById('card-info').classList.remove('hidden');
+        
+        const cardDetails = document.getElementById('card-details');
+        cardDetails.innerHTML = `
+            <p class="font-semibold text-blue-900">${data.card_name}</p>
+            <p class="text-blue-700 text-sm">Confidence: ${data.confidence}</p>
+            <p class="text-blue-700 text-sm">Distance: ${data.distance}</p>
+            <p class="text-blue-700 text-sm">Price: ${data.price_info}</p>
+        `;
+    }
+
+    // Hide card information
+    function hideCardInfo() {
+        document.getElementById('detection-status').classList.remove('hidden');
+        document.getElementById('card-info').classList.add('hidden');
+    }
+
+    // Show confirmation dialog
+    function showConfirmationDialog(data, elapsedSeconds) {
+        document.getElementById('confirmation-timer').classList.remove('hidden');
+        updateTimerDisplay(elapsedSeconds);
+        
+        // Start countdown timer
+        if (!confirmationTimer) {
+            confirmationTimer = setInterval(() => {
+                const seconds = Math.floor((Date.now() - cardDetectionStartTime) / 1000);
+                updateTimerDisplay(seconds);
+            }, 1000);
+        }
+    }
+
+    // Hide confirmation dialog
+    function hideConfirmationDialog() {
+        document.getElementById('confirmation-timer').classList.add('hidden');
+        if (confirmationTimer) {
+            clearInterval(confirmationTimer);
+            confirmationTimer = null;
+        }
+    }
+
+    // Update timer display
+    function updateTimerDisplay(seconds) {
+        document.getElementById('timer-seconds').textContent = seconds;
+        document.getElementById('timer-display').textContent = seconds;
+    }
+
+    // Confirm adding card to deck
+    function confirmAddCard() {
+        if (!currentCard) {
+            console.log('No currentCard available'); // Debug log
+            return;
+        }
+        
+        console.log('Adding card to deck:', currentCard); // Debug log
+        
+        // Add card to deck
+        const cardData = {
+            'user_id': '{{ session.user.id }}',
+            'card_name': currentCard.card_name,
+            'card_id': currentCard.card_name.split("_").pop() || currentCard.card_name,
+            'price_info': currentCard.price_info,
+            'distance': currentCard.distance,
+            'confidence': currentCard.confidence,
+            'added_at': new Date().toISOString(),
+            'image_url': currentCard.image_url || null // Add the image URL from the API
+        };
+        
+        console.log('Sending card data:', cardData); // Debug log
+        
+        fetch('/api/add-card', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify(cardData)
+        })
+        .then(response => response.json())
+        .then(data => {
+            console.log('API response:', data); // Debug log
+            if (data.success) {
+                showToast('Card added to your deck!', 'success');
+                loadStats();
+                loadDeck();
+            } else {
+                showToast('Failed to add card to deck: ' + (data.error || 'Unknown error'), 'error');
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            showToast('An error occurred while adding the card.', 'error');
+        });
+        
+        // Reset detection state
+        hideConfirmationDialog();
+        lastDetectedCard = null;
+        cardDetectionStartTime = null;
+        currentCard = null;
+    }
+
+    // Cancel adding card
+    function cancelAddCard() {
+        hideConfirmationDialog();
+        lastDetectedCard = null;
+        cardDetectionStartTime = null;
+        currentCard = null;
+    }
+
+    // Update contour display
+    function updateContourDisplay(contourImage) {
+        const contourDisplay = document.getElementById('contour-display');
+        const contourPlaceholder = document.getElementById('contour-placeholder');
+        
+        if (contourImage) {
+            contourDisplay.src = contourImage;
+            contourDisplay.style.display = 'block';
+            contourPlaceholder.style.display = 'none';
+        } else {
+            contourDisplay.style.display = 'none';
+            contourPlaceholder.style.display = 'flex';
+        }
+    }
+
+    // Clean up function for webcam
+    function cleanup() {
+        stopCamera();
+    }
+
+    // Clean up when page is unloaded
+    window.addEventListener('beforeunload', cleanup);
+
+    // Load statistics
+    function loadStats() {
+        fetch('/api/stats')
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                document.getElementById('total-cards').textContent = data.stats.total_cards;
+                document.getElementById('collection-value').textContent = data.stats.estimated_value;
+                document.getElementById('rare-cards').textContent = data.stats.rarity_breakdown.rare || 0;
+                document.getElementById('last-added').textContent = 'Today';
+            }
+        })
+        .catch(error => {
+            console.error('Error loading stats:', error);
+        });
+    }
+
+    // Load deck
+    function loadDeck() {
+        fetch('/api/deck')
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                displayDeck(data.deck);
+            }
+        })
+        .catch(error => {
+            console.error('Error loading deck:', error);
+        });
+    }
+
+    // Display deck
+    function displayDeck(deck) {
+        const emptyDeck = document.getElementById('empty-deck');
+        const deckGrid = document.getElementById('deck-grid');
+
+        if (deck.length === 0) {
+            emptyDeck.classList.remove('hidden');
+            deckGrid.classList.add('hidden');
+            return;
+        }
+
+        emptyDeck.classList.add('hidden');
+        deckGrid.classList.remove('hidden');
+
+        deckGrid.innerHTML = deck.map(card => `
+            <div class="card p-6 hover:shadow-lg transition-shadow">
+                <div class="flex justify-between items-start mb-4">
+                    <h3 class="text-lg font-semibold text-gray-900">${card.card_name}</h3>
+                    <button class="text-red-500 hover:text-red-700" onclick="removeCard('${card.id}')">
+                        <i class="fas fa-trash"></i>
+                    </button>
+                </div>
+                
+                ${card.image_url ? `
+                    <div class="mb-4">
+                        <img src="${card.image_url}" alt="${card.card_name}" class="w-full h-48 object-contain rounded-lg border border-gray-200">
+                    </div>
+                ` : ''}
+                
+                <div class="space-y-2 text-sm text-gray-600">
+                    <p><strong>Confidence:</strong> ${card.confidence}</p>
+                    <p><strong>Price:</strong> ${card.price_info}</p>
+                    <p><strong>Added:</strong> ${new Date(card.added_at).toLocaleDateString()}</p>
+                </div>
+            </div>
+        `).join('');
+    }
+
+    // Remove card
+    function removeCard(cardId) {
+        if (confirm('Are you sure you want to remove this card from your deck?')) {
+            fetch('/api/remove-card', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    card_id: cardId
+                })
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    showToast('Card removed from deck', 'success');
+                    loadStats();
+                    loadDeck();
+                } else {
+                    showToast('Failed to remove card', 'error');
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                showToast('An error occurred while removing the card.', 'error');
+            });
+        }
+    }
+
+    // Refresh deck
+    function refreshDeck() {
+        loadDeck();
+        showToast('Deck refreshed', 'info');
+    }
+</script>
+{% endblock %} 

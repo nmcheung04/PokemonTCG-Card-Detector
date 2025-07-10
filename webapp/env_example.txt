@@ -1,0 +1,9 @@
+# Flask Configuration
+FLASK_SECRET_KEY=your-secret-key-here-change-this-in-production
+
+# Supabase Configuration
+SUPABASE_URL=https://fljurbnmobmibecxuwhm.supabase.co
+SUPABASE_ANON_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZsanVyYm5tb2JtaWJlY3h1d2htIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTIxMTQ2MzIsImV4cCI6MjA2NzY5MDYzMn0.Vyh5GTiZmUllyMUIVUo34FOG22UKG9wW_qiIuNTKwK4
+
+# Pokemon TCG API (Optional - for price data)
+POKEMON_API_KEY=0a472045-e362-4db0-9d5b-5762da5b0edc

@@ -7,6 +7,7 @@ from PIL import Image
 import requests
 import os 
 from dotenv import load_dotenv
+from concurrent.futures import ProcessPoolExecutor, as_completed
 
 load_dotenv()
 
@@ -35,16 +36,19 @@ def match_card(phash, card_database):
             min_dist = dist
             best_match = name
     return best_match, min_dist
-        
+
 def getContours(img, imgContour, originalImg, areaMin=15000, width=500, height=700):
     contours, _ = cv2.findContours(img, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_NONE)
     card_found = False
+    # Draw all contours in blue for visualization
+    cv2.drawContours(imgContour, contours, -1, (255, 0, 0), 2)
     for cnt in contours:
         area = cv2.contourArea(cnt)
         peri = cv2.arcLength(cnt, True)
         approx = cv2.approxPolyDP(cnt, 0.02 * peri, True)
         if area > areaMin and len(approx) == 4:
             card_found = True
+            # Draw the detected card contour in magenta (as before)
             cv2.drawContours(imgContour, [cnt], -1, (255, 0, 255), 7)
             rectX, rectY, rectW, rectH = cv2.boundingRect(approx)
             cv2.rectangle(imgContour, (rectX, rectY), (rectX + rectW, rectY + rectH), (0, 255, 0), 5)
@@ -109,8 +113,10 @@ def process_image(image, card_database):
         card_id = match.split("_")[-1]
         price_info = get_card_price(card_id)
         label = f"{match} (dist: {dist}, price: {price_info})"
+        print(label)
 
-    print(f"Match time: {match_time:.4f}s")
+    if match_time > 0.01:
+        print(f"Match time: {match_time:.4f}s")
     return imgContour, label
 
 def main():
