@@ -1,0 +1,363 @@
+{% extends "base.html" %}
+{% block title %}Messages{% endblock %}
+{% block content %}
+<div class="max-w-6xl mx-auto mt-8 p-6">
+    <!-- Header -->
+    <div class="card p-6 mb-6">
+        <div class="flex items-center justify-between">
+            <div>
+                <h1 class="text-3xl font-bold text-gray-900">Messages</h1>
+                <p class="text-gray-600 mt-2">Chat with your friends</p>
+            </div>
+            <a href="/friends" class="bg-blue-500 text-white px-4 py-2 rounded-lg hover:bg-blue-600">
+                <i class="fas fa-arrow-left mr-2"></i>Back to Friends
+            </a>
+        </div>
+    </div>
+
+    <!-- Messages Interface -->
+    <div class="card p-6">
+        <div class="grid grid-cols-1 lg:grid-cols-4 gap-6" style="height: 600px;">
+            <!-- Contacts List -->
+            <div class="lg:col-span-1 border-r border-gray-200" style="height: 100%;">
+                <h2 class="text-lg font-semibold mb-4">Contacts</h2>
+                <div id="conversations-list" style="height: calc(100% - 60px); overflow-y: auto;">
+                    <div class="text-gray-500 text-center py-4">Loading contacts...</div>
+                </div>
+            </div>
+
+            <!-- Chat Window -->
+            <div class="lg:col-span-3" style="height: 100%; display: flex; flex-direction: column; position: relative;">
+                <!-- Chat Header -->
+                <div id="chat-header" class="hidden border-b border-gray-200 pb-4 mb-4" style="flex-shrink: 0;">
+                    <h3 id="chat-title" class="text-lg font-semibold"></h3>
+                </div>
+
+                <!-- Messages Area -->
+                <div id="messages-area" class="hidden p-4 bg-gray-50 rounded-lg" style="position: absolute; top: 60px; left: 0; right: 0; bottom: 80px; overflow-y: auto;">
+                    <div id="messages-container">
+                        <!-- Messages will be loaded here -->
+                    </div>
+                </div>
+
+                <!-- Message Input -->
+                <div id="message-input-area" class="hidden" style="position: absolute; bottom: 0; left: 0; right: 0; background: white; padding: 16px; border-top: 1px solid #e5e7eb;">
+                    <form id="message-form" class="flex gap-2 items-end">
+                        <textarea id="message-input" placeholder="Type your message..." 
+                                  class="flex-1 border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none"
+                                  style="min-height: 40px; max-height: 120px; overflow-y: auto;"
+                                  rows="1"></textarea>
+                        <button type="submit" class="bg-blue-500 text-white px-4 py-2 rounded-lg hover:bg-blue-600" style="height: 40px;">
+                            <i class="fas fa-paper-plane"></i>
+                        </button>
+                    </form>
+                </div>
+
+                <!-- No Chat Selected -->
+                <div id="no-chat-selected" style="flex: 1; display: flex; align-items: center; justify-content: center;">
+                    <div class="text-center text-gray-500">
+                        <i class="fas fa-comments text-4xl mb-4"></i>
+                        <p>Select a contact to start messaging</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+let currentChatUser = null;
+let conversations = [];
+
+document.addEventListener('DOMContentLoaded', function() {
+    // Test debug endpoint first
+    fetch('/api/debug/messages')
+        .then(response => response.json())
+        .then(data => {
+            console.log('Debug info:', data);
+        })
+        .catch(error => {
+            console.error('Debug error:', error);
+        });
+    
+    loadConversations();
+    setupMessageForm();
+    
+    // Auto-refresh contacts every 30 seconds
+    setInterval(loadConversations, 30000);
+});
+
+function setupMessageForm() {
+    document.getElementById('message-form').addEventListener('submit', function(e) {
+        e.preventDefault();
+        sendMessage();
+    });
+    
+    // Auto-resize textarea
+    const textarea = document.getElementById('message-input');
+    textarea.addEventListener('input', function() {
+        this.style.height = 'auto';
+        this.style.height = Math.min(this.scrollHeight, 120) + 'px';
+    });
+    
+    // Handle Enter key to send message
+    textarea.addEventListener('keydown', function(e) {
+        if (e.key === 'Enter' && !e.shiftKey) {
+            e.preventDefault();
+            sendMessage();
+        }
+    });
+}
+
+async function loadConversations() {
+    try {
+        // Load both conversations and friends
+        const [conversationsResponse, friendsResponse] = await Promise.all([
+            fetch('/api/messages/conversations'),
+            fetch('/api/friends/list')
+        ]);
+        
+        const conversationsData = await conversationsResponse.json();
+        const friendsData = await friendsResponse.json();
+        
+        if (conversationsData.success && friendsData.success) {
+            conversations = conversationsData.conversations;
+            const friends = friendsData.friends;
+            
+            // Merge conversations and friends, prioritizing conversations
+            const allContacts = new Map();
+            
+            // Add all friends first
+            friends.forEach(friend => {
+                allContacts.set(friend.id, {
+                    user_id: friend.id,
+                    user_email: friend.email,
+                    last_message: 'No messages yet',
+                    last_message_time: null,
+                    unread_count: 0,
+                    is_friend: true
+                });
+            });
+            
+            // Override with conversation data if exists
+            conversations.forEach(conv => {
+                allContacts.set(conv.user_id, {
+                    ...conv,
+                    is_friend: true
+                });
+            });
+            
+            displayContacts(Array.from(allContacts.values()));
+            
+            // Check if we need to auto-select a friend
+            {% if selected_friend %}
+            const selectedFriendId = '{{ selected_friend }}';
+            const contact = allContacts.get(selectedFriendId);
+            if (contact) {
+                selectConversation(selectedFriendId, contact.user_email);
+            } else {
+                // If not in contacts, get the friend's email first
+                getFriendEmail(selectedFriendId).then(email => {
+                    selectConversation(selectedFriendId, email);
+                });
+            }
+            {% endif %}
+        }
+    } catch (error) {
+        console.error('Error loading contacts:', error);
+    }
+}
+
+function displayContacts(contacts) {
+    const container = document.getElementById('conversations-list');
+    
+    if (contacts.length === 0) {
+        container.innerHTML = '<div class="text-gray-500 text-center py-4">No contacts yet</div>';
+        return;
+    }
+    
+    container.innerHTML = contacts.map(contact => `
+        <div class="conversation-item p-3 rounded-lg hover:bg-gray-100 cursor-pointer ${currentChatUser === contact.user_id ? 'bg-blue-100' : ''}" 
+             onclick="selectConversation('${contact.user_id}', '${contact.user_email}')">
+            <div class="flex justify-between items-start">
+                <div class="flex-1">
+                    <div class="font-medium text-gray-900">${contact.user_email}</div>
+                    <div class="text-sm text-gray-600 truncate">${contact.last_message}</div>
+                    ${contact.last_message_time ? `
+                        <div class="text-xs text-gray-500">${formatTime(contact.last_message_time)}</div>
+                    ` : ''}
+                </div>
+                ${contact.unread_count > 0 ? `
+                    <span class="bg-red-500 text-white text-xs rounded-full px-2 py-1">${contact.unread_count}</span>
+                ` : ''}
+            </div>
+        </div>
+    `).join('');
+    
+    // Add click event listeners for highlighting
+    document.querySelectorAll('.conversation-item').forEach(item => {
+        item.addEventListener('click', function() {
+            // Remove highlight from all items
+            document.querySelectorAll('.conversation-item').forEach(i => i.classList.remove('bg-blue-100'));
+            // Add highlight to clicked item
+            this.classList.add('bg-blue-100');
+        });
+    });
+}
+
+function selectConversation(userId, userEmail) {
+    console.log('Selecting conversation with:', userId, userEmail); // Debug log
+    currentChatUser = userId;
+    
+    // Update UI - hide the "no chat selected" message and show chat interface
+    const chatHeader = document.getElementById('chat-header');
+    const messagesArea = document.getElementById('messages-area');
+    const messageInputArea = document.getElementById('message-input-area');
+    const noChatSelected = document.getElementById('no-chat-selected');
+    
+    console.log('Before hiding no-chat-selected:', noChatSelected.style.display);
+    
+    chatHeader.classList.remove('hidden');
+    messagesArea.classList.remove('hidden');
+    messageInputArea.classList.remove('hidden');
+    noChatSelected.style.display = 'none';
+    noChatSelected.style.visibility = 'hidden';
+    noChatSelected.style.opacity = '0';
+    
+    // Ensure messages area is properly positioned
+    messagesArea.style.display = 'block';
+    
+    console.log('After hiding no-chat-selected:', noChatSelected.style.display);
+    
+    document.getElementById('chat-title').textContent = userEmail;
+    
+    // Update conversation list styling
+    document.querySelectorAll('.conversation-item').forEach(item => {
+        item.classList.remove('bg-blue-100');
+    });
+    
+    // Load messages
+    loadMessages(userId);
+}
+
+async function loadMessages(userId) {
+    try {
+        console.log('Loading messages for user:', userId); // Debug log
+        const response = await fetch(`/api/messages/${userId}`);
+        const data = await response.json();
+        
+        console.log('Messages response:', data); // Debug log
+        
+        if (data.success) {
+            displayMessages(data.messages, userId);
+        } else {
+            console.error('Failed to load messages:', data.error);
+        }
+    } catch (error) {
+        console.error('Error loading messages:', error);
+    }
+}
+
+function displayMessages(messages, otherUserId) {
+    const container = document.getElementById('messages-container');
+    const currentUserId = '{{ session.user.id }}';
+    
+    console.log('Displaying messages:', messages); // Debug log
+    
+    if (!messages || messages.length === 0) {
+        container.innerHTML = '<div class="text-center text-gray-500 py-8">No messages yet. Start the conversation!</div>';
+        return;
+    }
+    
+    container.innerHTML = messages.map(msg => {
+        const isOwnMessage = msg.sender_id === currentUserId;
+        return `
+            <div class="flex ${isOwnMessage ? 'justify-end' : 'justify-start'} mb-4">
+                <div class="max-w-xs lg:max-w-md px-4 py-2 rounded-lg ${isOwnMessage ? 'bg-blue-500 text-white' : 'bg-white border border-gray-200'} shadow-sm">
+                    <div class="text-sm">${msg.message_text}</div>
+                    <div class="text-xs ${isOwnMessage ? 'text-blue-100' : 'text-gray-500'} mt-1">${formatTime(msg.created_at)}</div>
+                </div>
+            </div>
+        `;
+    }).join('');
+    
+    // Scroll to bottom with a small delay to ensure DOM is updated
+    setTimeout(() => {
+        const messagesArea = document.getElementById('messages-area');
+        messagesArea.scrollTop = messagesArea.scrollHeight;
+    }, 10);
+}
+
+async function sendMessage() {
+    if (!currentChatUser) return;
+    
+    const input = document.getElementById('message-input');
+    const messageText = input.value.trim();
+    
+    if (!messageText) return;
+    
+    try {
+        const response = await fetch('/api/messages/send', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+                receiver_id: currentChatUser,
+                message_text: messageText
+            })
+        });
+        
+        const data = await response.json();
+        
+        if (data.success) {
+            input.value = '';
+            // Reset textarea height
+            input.style.height = '40px';
+            // Reload messages to show the new message
+            loadMessages(currentChatUser);
+            // Refresh contacts to update last message
+            loadConversations();
+        } else {
+            showToast('Failed to send message: ' + data.error, 'error');
+        }
+    } catch (error) {
+        console.error('Error sending message:', error);
+        showToast('Error sending message', 'error');
+    }
+}
+
+async function getFriendEmail(friendId) {
+    try {
+        const response = await fetch(`/api/friends/${friendId}/email`);
+        const data = await response.json();
+        
+        if (data.success) {
+            return data.email;
+        } else {
+            return 'Friend';
+        }
+    } catch (error) {
+        console.error('Error getting friend email:', error);
+        return 'Friend';
+    }
+}
+
+function formatTime(timestamp) {
+    const date = new Date(timestamp);
+    const now = new Date();
+    const diffMs = now - date;
+    const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
+    
+    if (diffDays === 0) {
+        return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    } else if (diffDays === 1) {
+        return 'Yesterday';
+    } else if (diffDays < 7) {
+        return date.toLocaleDateString([], { weekday: 'short' });
+    } else {
+        return date.toLocaleDateString();
+    }
+}
+</script>
+{% endblock %} 

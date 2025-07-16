@@ -67,6 +67,14 @@
                         <a href="/dashboard" class="text-white hover:text-gray-200 px-3 py-2 rounded-md text-sm font-medium">
                             <i class="fas fa-home mr-2"></i>Dashboard
                         </a>
+                        <a href="/friends" class="text-white hover:text-gray-200 px-3 py-2 rounded-md text-sm font-medium relative">
+                            <i class="fas fa-user-friends mr-2"></i>Friends
+                            <span id="friend-request-badge" class="hidden absolute -top-1 -right-1 bg-red-500 text-white text-xs rounded-full h-5 w-5 flex items-center justify-center">0</span>
+                        </a>
+                        <a href="/messages" class="text-white hover:text-gray-200 px-3 py-2 rounded-md text-sm font-medium relative">
+                            <i class="fas fa-comments mr-2"></i>Messages
+                            <span id="message-badge" class="hidden absolute -top-1 -right-1 bg-red-500 text-white text-xs rounded-full h-5 w-5 flex items-center justify-center">0</span>
+                        </a>
                         <a href="/logout" class="text-white hover:text-gray-200 px-3 py-2 rounded-md text-sm font-medium">
                             <i class="fas fa-sign-out-alt mr-2"></i>Logout
                         </a>
@@ -144,6 +152,60 @@
         // Global error handler
         window.addEventListener('error', function(e) {
             showToast('An error occurred. Please try again.', 'error');
+        });
+
+        // Check for friend requests and update badge
+        async function updateFriendRequestBadge() {
+            const badge = document.getElementById('friend-request-badge');
+            if (!badge) return; // Not logged in or badge doesn't exist
+            
+            try {
+                const response = await fetch('/api/friends/requests');
+                const data = await response.json();
+                
+                if (data.success && data.incoming && data.incoming.length > 0) {
+                    badge.textContent = data.incoming.length;
+                    badge.classList.remove('hidden');
+                } else {
+                    badge.classList.add('hidden');
+                }
+            } catch (error) {
+                console.error('Error checking friend requests:', error);
+            }
+        }
+
+        // Check for unread messages and update badge
+        async function updateMessageBadge() {
+            const badge = document.getElementById('message-badge');
+            if (!badge) return; // Not logged in or badge doesn't exist
+            
+            try {
+                const response = await fetch('/api/messages/conversations');
+                const data = await response.json();
+                
+                if (data.success && data.conversations) {
+                    const totalUnread = data.conversations.reduce((sum, conv) => sum + conv.unread_count, 0);
+                    if (totalUnread > 0) {
+                        badge.textContent = totalUnread;
+                        badge.classList.remove('hidden');
+                    } else {
+                        badge.classList.add('hidden');
+                    }
+                }
+            } catch (error) {
+                console.error('Error checking messages:', error);
+            }
+        }
+
+        // Update badges when page loads (if user is logged in)
+        document.addEventListener('DOMContentLoaded', function() {
+            {% if session.user %}
+                updateFriendRequestBadge();
+                updateMessageBadge();
+                // Update badges every 30 seconds
+                setInterval(updateFriendRequestBadge, 30000);
+                setInterval(updateMessageBadge, 30000);
+            {% endif %}
         });
     </script>
 

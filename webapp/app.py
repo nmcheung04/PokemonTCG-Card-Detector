@@ -15,6 +15,7 @@ import io
 import uuid
 from datetime import datetime
 import json
+from friends import bp as friends_bp
 
 load_dotenv()
 
@@ -473,6 +474,8 @@ def get_stats():
         })
     except Exception as e:
         return jsonify({"success": False, "error": str(e)})
+
+app.register_blueprint(friends_bp)
 
 if __name__ == '__main__':
     app.run(debug=True, host='0.0.0.0', port=5000) 

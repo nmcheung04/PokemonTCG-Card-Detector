@@ -1,0 +1,207 @@
+{% extends "base.html" %}
+{% block title %}Friends{% endblock %}
+{% block content %}
+<div class="max-w-4xl mx-auto mt-8 p-6 bg-white rounded shadow">
+    <h1 class="text-2xl font-bold mb-6">Your Friends</h1>
+    
+    {% if error %}
+        <div class="bg-red-100 text-red-700 p-3 rounded mb-4">{{ error }}</div>
+    {% endif %}
+    
+    <!-- Add Friend Form -->
+    <div class="mb-8 p-4 border rounded">
+        <h2 class="text-lg font-semibold mb-3">Add Friend</h2>
+        <form id="add-friend-form" class="flex">
+            <input type="email" id="friend-email" class="border p-2 flex-1 rounded-l" placeholder="Friend's email" required />
+            <button type="submit" class="bg-blue-500 text-white px-4 py-2 rounded-r hover:bg-blue-600">Add Friend</button>
+        </form>
+        <div id="add-friend-status" class="mt-2 text-sm"></div>
+    </div>
+
+    <!-- Incoming Friend Requests -->
+    <div class="mb-8 p-4 border rounded">
+        <h2 class="text-lg font-semibold mb-3">Incoming Friend Requests</h2>
+        <div id="incoming-requests">
+            <div class="text-gray-500">Loading...</div>
+        </div>
+    </div>
+
+    <!-- Outgoing Friend Requests -->
+    <div class="mb-8 p-4 border rounded">
+        <h2 class="text-lg font-semibold mb-3">Outgoing Friend Requests</h2>
+        <div id="outgoing-requests">
+            <div class="text-gray-500">Loading...</div>
+        </div>
+    </div>
+
+    <!-- Current Friends -->
+    <div class="p-4 border rounded">
+        <h2 class="text-lg font-semibold mb-3">Current Friends</h2>
+        <div id="friend-list">
+            <div class="text-gray-500">Loading...</div>
+        </div>
+    </div>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    loadFriends();
+    loadFriendRequests();
+    
+    document.getElementById('add-friend-form').addEventListener('submit', async function(e) {
+        e.preventDefault();
+        const email = document.getElementById('friend-email').value;
+        const statusDiv = document.getElementById('add-friend-status');
+        
+        try {
+            const res = await fetch('/api/friends/add', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ friend_email: email })
+            });
+            const data = await res.json();
+            
+            if (data.success) {
+                statusDiv.innerHTML = `<div class="text-green-600">${data.message}</div>`;
+                document.getElementById('friend-email').value = '';
+                loadFriendRequests(); // Refresh requests
+            } else {
+                statusDiv.innerHTML = `<div class="text-red-600">${data.error}</div>`;
+            }
+        } catch (error) {
+            statusDiv.innerHTML = `<div class="text-red-600">Error: ${error.message}</div>`;
+        }
+    });
+});
+
+async function loadFriends() {
+    try {
+        const res = await fetch('/api/friends/list');
+        const data = await res.json();
+        const list = document.getElementById('friend-list');
+        
+        if (data.success && data.friends.length > 0) {
+            list.innerHTML = '';
+            data.friends.forEach(friend => {
+                const div = document.createElement('div');
+                div.className = 'flex justify-between items-center border-b py-3';
+                div.innerHTML = `
+                    <span class="font-medium">${friend.email}</span>
+                    <div class="space-x-2">
+                        <a href="/messages?friend=${friend.id}" class="bg-blue-500 text-white px-3 py-1 rounded hover:bg-blue-600">
+                            Send Message
+                        </a>
+                        <a href="/friends/${friend.id}" class="bg-green-500 text-white px-3 py-1 rounded hover:bg-green-600">
+                            View Dashboard
+                        </a>
+                    </div>
+                `;
+                list.appendChild(div);
+            });
+        } else {
+            list.innerHTML = '<div class="text-gray-500">No friends yet.</div>';
+        }
+    } catch (error) {
+        document.getElementById('friend-list').innerHTML = '<div class="text-red-500">Error loading friends</div>';
+    }
+}
+
+async function loadFriendRequests() {
+    try {
+        const res = await fetch('/api/friends/requests');
+        const data = await res.json();
+        
+        if (data.success) {
+            // Load incoming requests
+            const incomingDiv = document.getElementById('incoming-requests');
+            if (data.incoming && data.incoming.length > 0) {
+                incomingDiv.innerHTML = '';
+                data.incoming.forEach(req => {
+                    const div = document.createElement('div');
+                    div.className = 'flex justify-between items-center border-b py-3';
+                    div.innerHTML = `
+                        <div>
+                            <span class="font-medium">${req.sender_email}</span>
+                            <div class="text-sm text-gray-500">Requested ${new Date(req.created_at).toLocaleDateString()}</div>
+                        </div>
+                        <div class="space-x-2">
+                            <button onclick="acceptRequest('${req.id}')" class="bg-green-500 text-white px-3 py-1 rounded hover:bg-green-600">
+                                Accept
+                            </button>
+                            <button onclick="declineRequest('${req.id}')" class="bg-red-500 text-white px-3 py-1 rounded hover:bg-red-600">
+                                Decline
+                            </button>
+                        </div>
+                    `;
+                    incomingDiv.appendChild(div);
+                });
+            } else {
+                incomingDiv.innerHTML = '<div class="text-gray-500">No incoming requests</div>';
+            }
+            
+            // Load outgoing requests
+            const outgoingDiv = document.getElementById('outgoing-requests');
+            if (data.outgoing && data.outgoing.length > 0) {
+                outgoingDiv.innerHTML = '';
+                data.outgoing.forEach(req => {
+                    const div = document.createElement('div');
+                    div.className = 'flex justify-between items-center border-b py-3';
+                    div.innerHTML = `
+                        <div>
+                            <span class="font-medium">${req.receiver_email}</span>
+                            <div class="text-sm text-gray-500">Sent ${new Date(req.created_at).toLocaleDateString()}</div>
+                        </div>
+                        <div class="text-gray-500">Pending...</div>
+                    `;
+                    outgoingDiv.appendChild(div);
+                });
+            } else {
+                outgoingDiv.innerHTML = '<div class="text-gray-500">No outgoing requests</div>';
+            }
+        }
+    } catch (error) {
+        document.getElementById('incoming-requests').innerHTML = '<div class="text-red-500">Error loading requests</div>';
+        document.getElementById('outgoing-requests').innerHTML = '<div class="text-red-500">Error loading requests</div>';
+    }
+}
+
+async function acceptRequest(requestId) {
+    try {
+        const res = await fetch(`/api/friends/requests/${requestId}/accept`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' }
+        });
+        const data = await res.json();
+        
+        if (data.success) {
+            alert('Friend request accepted!');
+            loadFriends(); // Refresh friends list
+            loadFriendRequests(); // Refresh requests
+        } else {
+            alert('Error: ' + data.error);
+        }
+    } catch (error) {
+        alert('Error accepting request: ' + error.message);
+    }
+}
+
+async function declineRequest(requestId) {
+    try {
+        const res = await fetch(`/api/friends/requests/${requestId}/decline`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' }
+        });
+        const data = await res.json();
+        
+        if (data.success) {
+            alert('Friend request declined');
+            loadFriendRequests(); // Refresh requests
+        } else {
+            alert('Error: ' + data.error);
+        }
+    } catch (error) {
+        alert('Error declining request: ' + error.message);
+    }
+}
+</script>
+{% endblock %} 

@@ -1,0 +1,187 @@
+{% extends "base.html" %}
+{% block title %}Friend Dashboard{% endblock %}
+{% block content %}
+<div class="max-w-7xl mx-auto mt-8 p-6">
+    <!-- Header with friend info -->
+    <div class="card p-6 mb-6">
+        <div class="flex items-center justify-between">
+            <div>
+                <h1 class="text-3xl font-bold text-gray-900">{{ friend_email }}'s Collection</h1>
+                <p class="text-gray-600 mt-2">Viewing their Pokemon card collection</p>
+            </div>
+            <a href="/friends" class="bg-blue-500 text-white px-4 py-2 rounded-lg hover:bg-blue-600">
+                <i class="fas fa-arrow-left mr-2"></i>Back to Friends
+            </a>
+        </div>
+    </div>
+
+    <!-- Statistics Cards -->
+    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+        <!-- Total Cards -->
+        <div class="card p-6">
+            <div class="flex items-center">
+                <div class="p-3 rounded-full bg-blue-100 text-blue-600">
+                    <i class="fas fa-cards-blank text-2xl"></i>
+                </div>
+                <div class="ml-4">
+                    <p class="text-sm font-medium text-gray-600">Total Cards</p>
+                    <p class="text-2xl font-bold text-gray-900" id="total-cards">{{ cards|length if cards else 0 }}</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Collection Value -->
+        <div class="card p-6">
+            <div class="flex items-center">
+                <div class="p-3 rounded-full bg-green-100 text-green-600">
+                    <i class="fas fa-dollar-sign text-2xl"></i>
+                </div>
+                <div class="ml-4">
+                    <p class="text-sm font-medium text-gray-600">Collection Value</p>
+                    <p class="text-2xl font-bold text-gray-900" id="collection-value">$0.00</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Rare Cards -->
+        <div class="card p-6">
+            <div class="flex items-center">
+                <div class="p-3 rounded-full bg-purple-100 text-purple-600">
+                    <i class="fas fa-star text-2xl"></i>
+                </div>
+                <div class="ml-4">
+                    <p class="text-sm font-medium text-gray-600">Rare Cards</p>
+                    <p class="text-2xl font-bold text-gray-900" id="rare-cards">0</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Last Added -->
+        <div class="card p-6">
+            <div class="flex items-center">
+                <div class="p-3 rounded-full bg-orange-100 text-orange-600">
+                    <i class="fas fa-clock text-2xl"></i>
+                </div>
+                <div class="ml-4">
+                    <p class="text-sm font-medium text-gray-600">Last Added</p>
+                    <p class="text-lg font-bold text-gray-900" id="last-added">Never</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Card Collection -->
+    <div class="card p-8">
+        <div class="flex justify-between items-center mb-6">
+            <h2 class="text-2xl font-bold text-gray-900">Card Collection</h2>
+            <div class="text-sm text-gray-600">
+                <span id="cards-count">{{ cards|length if cards else 0 }}</span> cards
+            </div>
+        </div>
+
+        {% if cards and cards|length > 0 %}
+            <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
+                {% for card in cards %}
+                    <div class="border p-2 rounded">
+                        {% if card.image_url %}
+                            <img src="{{ card.image_url }}" alt="{{ card.card_name }}" class="w-full mb-2" />
+                        {% endif %}
+                        <div class="font-semibold">{{ card.card_name }}</div>
+                        <div class="text-sm text-gray-600">
+                            {% if card.price_info and '$' in card.price_info %}
+                                {% set price_match = card.price_info.split('$')[1].split(',')[0] if '$' in card.price_info else 'N/A' %}
+                                Price: ${{ price_match }}
+                            {% else %}
+                                Price: N/A
+                            {% endif %}
+                        </div>
+                        <div class="text-sm text-gray-600">Added: {{ card.added_at.split('T')[0].split('-')[1] + '/' + card.added_at.split('T')[0].split('-')[2] + '/' + card.added_at.split('T')[0].split('-')[0] if card.added_at else 'Unknown' }}</div>
+                    </div>
+                {% endfor %}
+            </div>
+        {% else %}
+            <div class="text-center py-12">
+                <i class="fas fa-cards-blank text-4xl text-gray-400 mb-4"></i>
+                <h3 class="text-lg font-semibold text-gray-900 mb-2">No cards yet</h3>
+                <p class="text-gray-600">This friend hasn't added any cards to their collection yet.</p>
+            </div>
+        {% endif %}
+    </div>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    calculateStats();
+});
+
+function calculateStats() {
+    const cards = {{ cards|tojson if cards else '[]' }};
+    
+    // Calculate total cards
+    const totalCards = cards.length;
+    document.getElementById('total-cards').textContent = totalCards;
+    document.getElementById('cards-count').textContent = totalCards;
+    
+    // Calculate collection value
+    let totalValue = 0;
+    let rareCards = 0;
+    let lastAdded = null;
+    
+    cards.forEach(card => {
+        // Calculate value - extract just the price part
+        const priceStr = card.price_info || 'N/A';
+        if (priceStr !== 'N/A' && priceStr.includes('$')) {
+            try {
+                // Extract just the price part (after the comma and space)
+                const priceMatch = priceStr.match(/\$([0-9,.]+)/);
+                if (priceMatch) {
+                    const price = parseFloat(priceMatch[1].replace(/[,]/g, ''));
+                    if (!isNaN(price)) {
+                        totalValue += price;
+                    }
+                }
+            } catch (e) {
+                // Ignore parsing errors
+            }
+        }
+        
+        // Count rare cards (high confidence or high value)
+        const confidence = card.confidence || 'Low';
+        const isRare = confidence === 'High' || (priceStr !== 'N/A' && priceStr.includes('$') && parseFloat(priceStr.match(/\$([0-9,.]+)/)?.[1]?.replace(/[,]/g, '') || '0') > 10);
+        if (isRare) {
+            rareCards++;
+        }
+        
+        // Track last added
+        if (card.added_at) {
+            const addedDate = new Date(card.added_at);
+            if (!lastAdded || addedDate > lastAdded) {
+                lastAdded = addedDate;
+            }
+        }
+    });
+    
+    // Update display
+    document.getElementById('collection-value').textContent = `$${totalValue.toFixed(2)}`;
+    document.getElementById('rare-cards').textContent = rareCards;
+    
+    if (lastAdded) {
+        const now = new Date();
+        const diffTime = Math.abs(now - lastAdded);
+        const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+        
+        if (diffDays === 1) {
+            document.getElementById('last-added').textContent = 'Today';
+        } else if (diffDays === 2) {
+            document.getElementById('last-added').textContent = 'Yesterday';
+        } else if (diffDays <= 7) {
+            document.getElementById('last-added').textContent = `${diffDays - 1} days ago`;
+        } else {
+            document.getElementById('last-added').textContent = lastAdded.toLocaleDateString();
+        }
+    } else {
+        document.getElementById('last-added').textContent = 'Never';
+    }
+}
+</script>
+{% endblock %} 

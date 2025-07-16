@@ -237,6 +237,25 @@
     // Start camera
     async function startCamera() {
         try {
+            // First check if getUserMedia is supported
+            if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+                console.error('getUserMedia not supported');
+                showToast('Camera access is not supported in this browser. Please use a modern browser.', 'error');
+                return;
+            }
+
+            // Check if we're on HTTPS or localhost
+            if (location.protocol !== 'https:' && location.hostname !== 'localhost' && location.hostname !== '127.0.0.1') {
+                console.error('Not on HTTPS or localhost:', location.protocol, location.hostname);
+                showToast('Camera access requires HTTPS. Please use HTTPS or localhost.', 'error');
+                return;
+            }
+
+            console.log('Requesting camera access...');
+            console.log('Browser:', navigator.userAgent);
+            console.log('Protocol:', location.protocol);
+            console.log('Hostname:', location.hostname);
+
             stream = await navigator.mediaDevices.getUserMedia({ 
                 video: { 
                     width: 640, 
@@ -245,6 +264,7 @@
                 } 
             });
             
+            console.log('Camera access granted!');
             const video = document.getElementById('webcam');
             video.srcObject = stream;
             
@@ -253,12 +273,44 @@
             
             // Start detection after camera is ready
             video.onloadedmetadata = function() {
+                console.log('Video metadata loaded, starting detection');
                 startDetection();
             };
             
         } catch (error) {
             console.error('Error accessing camera:', error);
-            showToast('Could not access camera. Please check permissions.', 'error');
+            console.error('Error name:', error.name);
+            console.error('Error message:', error.message);
+            
+            // Provide specific error messages based on error type
+            let errorMessage = 'Could not access camera. ';
+            
+            if (error.name === 'NotAllowedError') {
+                errorMessage += 'Camera permission was denied. Please allow camera access in your browser settings and try again.';
+                console.log('Permission denied - user needs to allow camera access');
+            } else if (error.name === 'NotFoundError') {
+                errorMessage += 'No camera found. Please connect a camera and try again.';
+                console.log('No camera hardware found');
+            } else if (error.name === 'NotReadableError') {
+                errorMessage += 'Camera is already in use by another application. Please close other camera apps and try again.';
+                console.log('Camera is in use by another app');
+            } else if (error.name === 'OverconstrainedError') {
+                errorMessage += 'Camera does not meet the required specifications. Please try a different camera.';
+                console.log('Camera constraints not met');
+            } else if (error.name === 'TypeError') {
+                errorMessage += 'Camera access is not supported. Please use a modern browser.';
+                console.log('getUserMedia not supported');
+            } else {
+                errorMessage += 'Please check camera permissions and try again.';
+                console.log('Unknown camera error');
+            }
+            
+            showToast(errorMessage, 'error');
+            
+            // Show helpful instructions
+            setTimeout(() => {
+                showToast('Tip: In Firefox, go to Settings → Privacy & Security → Camera to manage permissions.', 'info');
+            }, 3000);
         }
     }
 
@@ -557,28 +609,30 @@
         emptyDeck.classList.add('hidden');
         deckGrid.classList.remove('hidden');
 
-        deckGrid.innerHTML = deck.map(card => `
-            <div class="card p-6 hover:shadow-lg transition-shadow">
-                <div class="flex justify-between items-start mb-4">
-                    <h3 class="text-lg font-semibold text-gray-900">${card.card_name}</h3>
-                    <button class="text-red-500 hover:text-red-700" onclick="removeCard('${card.id}')">
-                        <i class="fas fa-trash"></i>
+        deckGrid.innerHTML = deck.map(card => {
+            // Extract just the price part from the price_info
+            let priceDisplay = 'N/A';
+            if (card.price_info && card.price_info.includes('$')) {
+                const priceMatch = card.price_info.match(/\$([0-9,.]+)/);
+                if (priceMatch) {
+                    priceDisplay = `$${priceMatch[1]}`;
+                }
+            }
+
+            return `
+                <div class="border p-2 rounded">
+                    ${card.image_url ? `
+                        <img src="${card.image_url}" alt="${card.card_name}" class="w-full mb-2" />
+                    ` : ''}
+                    <div class="font-semibold">${card.card_name}</div>
+                    <div class="text-sm text-gray-600">Price: ${priceDisplay}</div>
+                    <div class="text-sm text-gray-600">Added: ${new Date(card.added_at).toLocaleDateString()}</div>
+                    <button class="mt-2 text-red-500 hover:text-red-700 text-sm" onclick="removeCard('${card.id}')">
+                        <i class="fas fa-trash mr-1"></i>Remove
                     </button>
                 </div>
-                
-                ${card.image_url ? `
-                    <div class="mb-4">
-                        <img src="${card.image_url}" alt="${card.card_name}" class="w-full h-48 object-contain rounded-lg border border-gray-200">
-                    </div>
-                ` : ''}
-                
-                <div class="space-y-2 text-sm text-gray-600">
-                    <p><strong>Confidence:</strong> ${card.confidence}</p>
-                    <p><strong>Price:</strong> ${card.price_info}</p>
-                    <p><strong>Added:</strong> ${new Date(card.added_at).toLocaleDateString()}</p>
-                </div>
-            </div>
-        `).join('');
+            `;
+        }).join('');
     }
 
     // Remove card
