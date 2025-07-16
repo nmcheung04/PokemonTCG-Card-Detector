@@ -111,6 +111,7 @@
                     <h3 class="text-lg font-semibold text-gray-900 mb-4">Camera Feed</h3>
                     <div class="relative">
                         <video id="webcam" class="w-full h-64 bg-gray-100 rounded-lg object-contain" autoplay muted style="width: 640px; height: 480px; max-width: 100%;"></video>
+                        <canvas id="overlay-canvas" class="absolute top-0 left-0 w-full h-64 rounded-lg object-contain pointer-events-none" style="width: 640px; height: 480px; max-width: 100%;"></canvas>
                         <canvas id="canvas" class="absolute top-0 left-0 w-full h-64 rounded-lg object-contain" style="display: none; width: 640px; height: 480px; max-width: 100%;"></canvas>
                         
                         <div class="mt-4 flex space-x-2">
@@ -120,20 +121,6 @@
                             <button id="stop-camera" class="border-2 border-gray-300 text-gray-700 px-4 py-2 rounded-lg font-semibold hover:bg-gray-50" style="display: none;">
                                 <i class="fas fa-stop mr-2"></i>Stop Camera
                             </button>
-                        </div>
-                    </div>
-                </div>
-
-                <!-- Contour Detection Display -->
-                <div>
-                    <h3 class="text-lg font-semibold text-gray-900 mb-4">Edge Detection</h3>
-                    <div class="relative">
-                        <img id="contour-display" class="w-full h-64 bg-gray-100 rounded-lg object-contain" src="" alt="Contour detection" style="display: none; width: 640px; height: 480px; max-width: 100%;">
-                        <div id="contour-placeholder" class="w-full h-64 bg-gray-100 rounded-lg flex items-center justify-center" style="width: 640px; height: 480px; max-width: 100%;">
-                            <div class="text-center">
-                                <i class="fas fa-search text-4xl text-gray-400 mb-2"></i>
-                                <p class="text-gray-600">Edge detection will appear here</p>
-                            </div>
                         </div>
                     </div>
                 </div>
@@ -314,6 +301,51 @@
         }
     }
 
+    // Draw detection results on overlay canvas
+    function drawDetectionResults(data) {
+        const canvas = document.getElementById('overlay-canvas');
+        const ctx = canvas.getContext('2d');
+        
+        // Clear previous detection results
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        
+        // Redraw ROI overlays
+        drawROIOverlays();
+        
+        // Draw green bounding box for detected card
+        if (data.card_name) {
+            // For now, draw a sample bounding box in the center of ROI
+            // In a full implementation, you'd get the actual bbox from the backend
+            const margin = 0.05;
+            const aspectRatio = 0.714;
+            const h = canvas.height;
+            const w = canvas.width;
+            
+            let roiHeight = Math.floor((1 - 2 * margin) * h);
+            let roiWidth = Math.floor(aspectRatio * roiHeight);
+            
+            if (roiWidth > w) {
+                roiWidth = Math.floor((1 - 2 * margin) * w);
+                roiHeight = Math.floor(roiWidth / aspectRatio);
+            }
+            
+            const x1 = Math.floor(w / 2 - roiWidth / 2);
+            const y1 = Math.floor(margin * h);
+            const x2 = x1 + roiWidth;
+            const y2 = y1 + roiHeight;
+            
+            // Draw green bounding box
+            ctx.strokeStyle = '#00FF00';
+            ctx.lineWidth = 2;
+            ctx.strokeRect(x1 + 20, y1 + 20, roiWidth - 40, roiHeight - 40);
+            
+            // Draw label
+            ctx.fillStyle = '#00FF00';
+            ctx.font = '16px Arial';
+            ctx.fillText(`${data.card_name} (${data.distance})`, x1 + 20, y1 + 15);
+        }
+    }
+
     // Stop camera
     function stopCamera() {
         if (stream) {
@@ -331,6 +363,11 @@
             confirmationTimer = null;
         }
         
+        // Clear overlay canvas
+        const canvas = document.getElementById('overlay-canvas');
+        const ctx = canvas.getContext('2d');
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        
         document.getElementById('start-camera').style.display = 'inline-flex';
         document.getElementById('stop-camera').style.display = 'none';
         document.getElementById('detection-status').classList.remove('hidden');
@@ -342,9 +379,63 @@
         lastDetectedCard = null;
     }
 
+    // Draw ROI overlays on the live video feed
+    function drawROIOverlays() {
+        const video = document.getElementById('webcam');
+        const canvas = document.getElementById('overlay-canvas');
+        const ctx = canvas.getContext('2d');
+        
+        // Set canvas size to match video
+        canvas.width = video.videoWidth;
+        canvas.height = video.videoHeight;
+        
+        // Clear canvas
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        
+        // Calculate ROI dimensions (same as backend)
+        const margin = 0.05;
+        const aspectRatio = 0.714;
+        const h = canvas.height;
+        const w = canvas.width;
+        
+        let roiHeight = Math.floor((1 - 2 * margin) * h);
+        let roiWidth = Math.floor(aspectRatio * roiHeight);
+        
+        if (roiWidth > w) {
+            roiWidth = Math.floor((1 - 2 * margin) * w);
+            roiHeight = Math.floor(roiWidth / aspectRatio);
+        }
+        
+        const x1 = Math.floor(w / 2 - roiWidth / 2);
+        const y1 = Math.floor(margin * h);
+        const x2 = x1 + roiWidth;
+        const y2 = y1 + roiHeight;
+        
+        // Draw blue ROI box
+        ctx.strokeStyle = '#0000FF';
+        ctx.lineWidth = 2;
+        ctx.strokeRect(x1, y1, roiWidth, roiHeight);
+        
+        // Draw horizontal line at 20% from top of ROI
+        const lineY = y1 + Math.floor(0.2 * roiHeight);
+        ctx.beginPath();
+        ctx.moveTo(x1, lineY);
+        ctx.lineTo(x2, lineY);
+        ctx.stroke();
+    }
+
     // Start detection loop
     function startDetection() {
         detectionInterval = setInterval(processFrame, 1000); // Process every second
+        
+        // Draw overlays continuously for smooth display
+        const overlayInterval = setInterval(() => {
+            if (stream) {
+                drawROIOverlays();
+            } else {
+                clearInterval(overlayInterval);
+            }
+        }, 33); // ~30 FPS for smooth overlay updates
     }
 
     // Process webcam frame
@@ -377,12 +468,9 @@
         .then(data => {
             console.log('Received data:', data); // Debug log
             
-            // Always update contour display
-            if (data.contour_image) {
-                updateContourDisplay(data.contour_image);
-            }
-            
+            // Draw detection results on overlay canvas if cards are detected
             if (data.success && data.card_detected) {
+                drawDetectionResults(data);
                 console.log('Card detected, calling handleCardDetected'); // Debug log
                 handleCardDetected(data);
             } else {
@@ -539,21 +627,6 @@
         lastDetectedCard = null;
         cardDetectionStartTime = null;
         currentCard = null;
-    }
-
-    // Update contour display
-    function updateContourDisplay(contourImage) {
-        const contourDisplay = document.getElementById('contour-display');
-        const contourPlaceholder = document.getElementById('contour-placeholder');
-        
-        if (contourImage) {
-            contourDisplay.src = contourImage;
-            contourDisplay.style.display = 'block';
-            contourPlaceholder.style.display = 'none';
-        } else {
-            contourDisplay.style.display = 'none';
-            contourPlaceholder.style.display = 'flex';
-        }
     }
 
     // Clean up function for webcam
