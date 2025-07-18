@@ -58,9 +58,9 @@ print(f"Loaded card database with {len(card_database)} names.")
 
 # Frame processing optimization
 frame_counter = 0
-PROCESS_EVERY_N_FRAMES = 5  # Only process every 5th frame (increased from 3)
+PROCESS_EVERY_N_FRAMES = 3  # Only process every 5th frame (increased from 3)
 last_processed_time = 0
-MIN_PROCESSING_INTERVAL = 1.0  # Minimum seconds between processing (increased from 0.5)
+MIN_PROCESSING_INTERVAL = 0.5  # Minimum seconds between processing (increased from 0.5)
 last_detection_results = None  # Cache results
 CACHE_DURATION = 2.0  # Use cached results for 2 seconds
 
